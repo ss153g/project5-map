@@ -1,22 +1,52 @@
-html, body, #map-canvas {
+html,
+body,
+#map-canvas {
 	height: 100%;
 	margin: 0;
 	padding: 0;
 }
 
-#POI {
+.POI {
 	position: absolute;
-	top: 10px;
-	left: 10px;
+	top: 0;
+	left: 0;
 	z-index: 1;
-	border: 1px solid blue;
-	padding: 5px;
+	padding: 0;
 	background-color: rgba(255,255,0,0.7);
 	box-shadow: 0 0 50px #666;
+	overflow: hidden;
+	transition: all 250ms ease-in-out;
+	height: 25px;
 }
 
-#POI ul {
+.listofPOI {
 	padding: 1px;
 	margin: 1px;
 	list-style: none;
+}
+
+.expanded {
+	height: 100%;
+}
+
+.POI:hover {
+	height: 100%;
+}
+
+.expand {
+	padding: 5px;
+	display: block;
+	background-color: #FFF;
+	cursor: pointer;
+	text-align: center;
+	width: 100%;
+}
+
+.infoWindow {
+
+}
+@media screen and (max-width: 400px) {
+    .POI {
+        width: 50%;
+    }
 }

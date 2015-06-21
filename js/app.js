@@ -1,3 +1,16 @@
+"use strict";
+/*
+	Accounting for offline!!! :):):)
+	Following up on another awesome tip from Udacity reviewer.
+*/
+Offline.options = {
+	checks: {
+		image: {
+			url: 'http://google.com/mapfiles/ms/micons/ylw-pushpin.png'
+		},
+		active: 'image'
+	}
+};
 /*
 	This is a list of all POI in my neighborhood including my neighborhood.
 	For simplicity, the names and location (latitude and longitude) for each POI are also made available in the POI data.
@@ -19,6 +32,38 @@ var POI = [
 	Later in the code, we will iterate over the array to clear all markers when the ko computed observable gets updated.
 */
 var marks = [];
+
+/*
+	Declaring the infoWindow object globally so the same object can be manipulated over time instead of creating new ones.
+*/
+var infoWindow = new google.maps.InfoWindow({
+	maxWidth: 250
+});
+
+/*
+	Taking map creation out of the ViewModel into its own function.
+	Hopefully, it is okay to call this from the ViewModel.
+*/
+function createMap(){
+/*
+	The Google Map v3 requires a center and zoom data for initial map creation.
+	Additionally, I have added to disable the default UI on the map.
+*/
+	var mapOptions = {
+		center: { lat: 32.93, lng: -96.95},
+		zoom: 11,
+		disableDefaultUI: true
+	};
+
+/*
+	This actually creates the map and assigns the map object to the variable.
+	We have also created a global variable mapBounds to get the boundary for the map. This is from Project#2 map code.
+*/
+	var map = new google.maps.Map(document.getElementById('map-canvas'), mapOptions);
+	window.mapBounds = new google.maps.LatLngBounds();
+	return map;
+}
+
 
 /*
 	Actual Marker function, that will create initiated each time a new marker has to be created.
@@ -60,23 +105,33 @@ var MapMarker = function(loc,map){
 	The results vary based on the search but the search always returns the keyword searched.
 	We are accomodating for situations when data is not available and we will not display an infoWindow if the search was unsuccessful. Instead we are returning the error back.
 */
-				var content = "<h3>Results from Wikipedia for: "+data[0]+"</h3>";
+				var content = "<div class='infoWindow'><h3>Results from Wikipedia for: "+data[0]+"</h3>";
 				var heading 	= (data[1][0])? "<h1>"+data[1][0]+"</h1>":"";
 				var description = (data[2][0])? "<p>"+data[2][0]+"</p>":"<p>No description available</p>";
 				var URL 		= (data[3][0])? "<a href='"+data[3][0]+"'>"+data[3][0]+"</a>":"<p>No URL available</p>";
-				content += heading + description + URL;
-/*
-	This is where we are creating new infoWindow and then later we will associate them with the markers on a map.
-	The infoWindow opens when either the list is selected or when the marker is selected.
-*/
-				var infoWindow = new google.maps.InfoWindow({
-				  content: content
-				});
+				content += heading + description + URL+"</div>";
 
 				google.maps.event.addListener(marker, 'click', function(){
+/*
+	Adding interaction with when the marker is selected, and resetting all others.
+	Icons from: https://sites.google.com/site/gmapsdevelopment/
+*/
+					var icon = "http://google.com/mapfiles/ms/micons/ylw-pushpin.png";
+					for (var j = 0, len=marks.length; j < len; j++){
+						marks[j].setIcon(null);
+						marks[j].setAnimation(null);
+					}
+
+					(marker.getIcon() == icon)? marker.setIcon(null):marker.setIcon(icon);
+					(marker.getAnimation() != null)? marker.setAnimation(null):marker.setAnimation(google.maps.Animation.BOUNCE);
+/*
+	Neat trick from Udacity Reviewer to only open ONE infoWindow at a time!
+	https://stackoverflow.com/questions/1875596/have-just-one-infowindow-open-in-google-maps-api-v3
+*/
+					infoWindow.maxWidth = 200;
+					infoWindow.setContent(content);
 					infoWindow.open(map, marker);
 				});
-				infoWindow.open(map, marker);
 			},
 			error: function(e){
 				console.log(e);
@@ -90,7 +145,8 @@ var MapMarker = function(loc,map){
 	var bounds = window.mapBounds;
 	bounds.extend(myLatLng); // takes in a map location object
 	map.fitBounds(bounds);
-	map.setCenter(bounds.getCenter());
+//	map.panTo(bounds.getCenter());
+	map.panTo(myLatLng); // so map can center on the recently dropped pin.
 /*
 	This adds the newly created marker object into an array so we can clear the markers when drawing new ones when the ko computed variable gets updated.
 */
@@ -98,72 +154,77 @@ var MapMarker = function(loc,map){
 };
 
 var ViewModel = function(){
+	var self = this;
+/*
+	Adding a new style for Search & Filter to appear
+	so the full map is always displayed even in smaller forms
+*/
+	var nodePOI = $('.POI');
+	nodePOI.on('touchstart', '.expand', function(){
+		nodePOI.toggleClass('expanded');
+		if(! nodePOI.hasClass('expanded')){
+			nodePOI.css({height: '1.5em'});
+		}
+		else {
+			nodePOI.css({height: '100%'});
+		}
+	});
+
+/*
+	Calling the createMap function
+*/
+	var map = createMap();
 /*
 	This is the observableArray for the data.
 */
-	this.names = ko.observableArray(POI);
-/*
-	The Google Map v3 requires a center and zoom data for initial map creation.
-	Additionally, I have added to disable the default UI on the map.
-*/
-	var mapOptions = {
-		center: { lat: 32.93, lng: -96.95},
-		zoom: 11,
-		disableDefaultUI: true
-	};
-
-/*
-	This actually creates the map and assigns the map object to the variable.
-	We have also created a global variable mapBounds to get the boundary for the map. This is from Project#2 map code.
-*/
-	var map = new google.maps.Map(document.getElementById('map-canvas'), mapOptions);
-	window.mapBounds = new google.maps.LatLngBounds();
+	self.names = ko.observableArray(POI);
 
 /*
 	This variable keeps track of the filter List displayed on the map.
 	This is binded with the checkboxes
 */
-	this.filter = ko.observableArray();
+	self.filter = ko.observableArray();
 
 /*
 	This computed function runs each time a checkbox is selected or if a selected checkbox is removed due to search.
 	The function first clears all markers and then initiates new markers on the map based on checkbox selection.
 */
-	this.markers = ko.computed(function(){
-		for (var j = 0; j < marks.length; j++){
+	self.markers = ko.computed(function(){
+		infoWindow.close();
+		for (var j = 0, len=marks.length; j < len; j++){
 			marks[j].setMap(null);
 		}
-		for (var i = 0; i < this.filter().length; i++) {
-			var loc = this.filter()[i].split(',');
+		for (var i = 0, len=self.filter().length; i < len; i++) {
+			var loc = self.filter()[i].split(',');
 			new MapMarker(loc,map);
 		}
 		return;
-	}, this);
+	}, self);
 
 /*
 	This is binded with the textbox. The initial value is set as blank.
 	The idea behind this was textbox and form used was from KnockoutJS documentation
 	http://knockoutjs.com/examples/betterList.html
 */
-	this.itemToSearch = ko.observable("");
+	self.itemToSearch = ko.observable("");
 
 /*
 	The search function is binded with the search form submit action.
 	The search compares the text against the POI observableArray.
 	If a match is found the index is of a value higher than -1.
 */
-	this.searchPOI = function(){
+	self.searchPOI = function(){
 		var removeIndex = [];
-		for(var i=0; i < this.names().length; i++){
-			var POIdata = this.names()[i].join();
-			var index = POIdata.toLowerCase().indexOf(this.itemToSearch().toLowerCase());
+		for(var i=0, len=self.names().length; i < len; i++){
+			var POIdata = self.names()[i].join();
+			var index = POIdata.toLowerCase().indexOf(self.itemToSearch().toLowerCase());
 			if(index < 0){
 /*
 	We remove any checked checkboxes from the result and
 	save the index of the POI to remove it.
 	Removing now will make the index variable and we want to avoid that.
 */
-				this.filter.remove(POIdata);
+				self.filter.remove(POIdata);
 				removeIndex.push(i);
 			}
 		}
@@ -172,10 +233,10 @@ var ViewModel = function(){
 	Then we remove it using a forloop function.
 */
 		removeIndex.reverse();
-		for(var i=0; i<removeIndex.length; i++){
-			this.names.splice(removeIndex[i], 1);
+		for(var i=0, len=removeIndex.length; i<len; i++){
+			self.names.splice(removeIndex[i], 1);
 		}
-		this.itemToSearch("");
+		self.itemToSearch("");
 	};
 };
 
