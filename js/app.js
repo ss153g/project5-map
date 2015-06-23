@@ -4,6 +4,12 @@
 	Following up on another awesome tip from Udacity reviewer.
 */
 Offline.options = {
+	checkOnLoad: false,
+	interceptRequests: true,
+	requests: true,
+	reconnect: {
+		initialDelay: 3
+	},
 	checks: {
 		image: {
 			url: 'http://google.com/mapfiles/ms/micons/ylw-pushpin.png'
@@ -11,6 +17,7 @@ Offline.options = {
 		active: 'image'
 	}
 };
+
 /*
 	This is a list of all POI in my neighborhood including my neighborhood.
 	For simplicity, the names and location (latitude and longitude) for each POI are also made available in the POI data.
@@ -128,7 +135,6 @@ var MapMarker = function(loc,map){
 	Neat trick from Udacity Reviewer to only open ONE infoWindow at a time!
 	https://stackoverflow.com/questions/1875596/have-just-one-infowindow-open-in-google-maps-api-v3
 */
-					infoWindow.maxWidth = 200;
 					infoWindow.setContent(content);
 					infoWindow.open(map, marker);
 				});
@@ -163,7 +169,7 @@ var ViewModel = function(){
 	nodePOI.on('touchstart', '.expand', function(){
 		nodePOI.toggleClass('expanded');
 		if(! nodePOI.hasClass('expanded')){
-			nodePOI.css({height: '1.5em'});
+			nodePOI.css({height: '2.5em'});
 		}
 		else {
 			nodePOI.css({height: '100%'});
